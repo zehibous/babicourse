@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/CadreCompte";
+import MaquetteHero from "@/components/MaquetteHero";
 
 // Page d'accueil publique : on présente l'outil, sans mettre en avant la vente.
 const ETAPES = [
@@ -30,7 +31,8 @@ export default function Accueil() {
       </header>
 
       <main className="flex-1">
-        <section className="mx-auto max-w-5xl px-4 pb-12 pt-12 sm:pt-20">
+        <section className="mx-auto grid max-w-5xl items-center gap-12 px-4 pb-14 pt-10 sm:pt-16 lg:grid-cols-[1fr_340px] lg:gap-16">
+          <div>
           <h1 className="max-w-2xl text-3xl font-extrabold leading-tight sm:text-5xl">
             Sachez où sont vos livreurs, <span className="text-orange">en direct.</span>
           </h1>
@@ -44,6 +46,8 @@ export default function Accueil() {
             </Link>
             <span className="text-sm text-discret">Gratuit pendant la phase de lancement.</span>
           </div>
+          </div>
+          <MaquetteHero />
         </section>
 
         <section className="border-y border-bord bg-surface">

@@ -1,0 +1,87 @@
+@import "tailwindcss";
+
+:root {
+  --fond: #f7f5f2;
+  --surface: #ffffff;
+  --texte: #1c1917;
+  --discret: #78716c;
+  --bord: #e7e5e4;
+  --orange: #ea580c;
+  --orange-fonce: #c2410c;
+  --orange-doux: #fff1e6;
+  --vert: #16a34a;
+  --vert-doux: #e8f7ee;
+  --rouge: #dc2626;
+}
+
+@theme inline {
+  --color-fond: var(--fond);
+  --color-surface: var(--surface);
+  --color-texte: var(--texte);
+  --color-discret: var(--discret);
+  --color-bord: var(--bord);
+  --color-orange: var(--orange);
+  --color-orange-fonce: var(--orange-fonce);
+  --color-orange-doux: var(--orange-doux);
+  --color-vert: var(--vert);
+  --color-vert-doux: var(--vert-doux);
+  --color-rouge: var(--rouge);
+  --font-sans: var(--font-geist-sans);
+}
+
+body {
+  background: var(--fond);
+  color: var(--texte);
+}
+
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-orange {
+  @apply btn bg-orange text-white hover:bg-orange-fonce;
+}
+.btn-clair {
+  @apply btn border border-bord bg-surface text-texte hover:bg-fond;
+}
+.champ {
+  @apply w-full rounded-lg border border-bord bg-surface px-3 py-2 text-sm outline-none focus:border-orange focus:ring-2 focus:ring-orange/20;
+}
+.etiquette {
+  @apply mb-1 block text-sm font-medium;
+}
+.carte-bloc {
+  @apply rounded-xl border border-bord bg-surface;
+}
+
+/* Marqueurs de la carte */
+.marqueur-livreur {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  border: 3px solid white;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+}
+.marqueur-livreur.perdu {
+  filter: grayscale(1);
+  opacity: 0.7;
+}
+.marqueur-dest {
+  font-size: 26px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.3));
+}
+.marqueur-moi {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2563eb;
+  border: 3px solid white;
+  box-shadow: 0 0 0 6px rgb(37 99 235 / 0.25);
+}
+.leaflet-container {
+  font-family: inherit;
+}

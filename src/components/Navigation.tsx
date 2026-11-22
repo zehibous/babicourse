@@ -36,6 +36,16 @@ export default function Navigation() {
             );
           })}
         </nav>
+        <button
+          type="button"
+          onClick={async () => {
+            await fetch("/api/connexion", { method: "DELETE" });
+            window.location.href = "/connexion";
+          }}
+          className="ml-auto text-sm text-discret hover:text-texte"
+        >
+          Déconnexion
+        </button>
       </div>
     </header>
   );

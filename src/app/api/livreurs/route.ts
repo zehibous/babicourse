@@ -17,9 +17,8 @@ export async function POST(req: Request) {
   if (!nom || !immatriculation) {
     return Response.json({ erreur: "Le nom et l'immatriculation sont obligatoires." }, { status: 400 });
   }
-  const existants = await db.livreurs(g.entreprise.id);
-  if (existants.some((l) => l.immatriculation === immatriculation)) {
-    return Response.json({ erreur: "Un livreur a déjà cette immatriculation." }, { status: 409 });
-  }
-  return Response.json(await db.ajouterLivreur(g.entreprise.id, { nom, telephone, immatriculation }), { status: 201 });
+  // Un seul passage par la base : c'est elle qui refuse les doublons d'immatriculation.
+  const livreur = await db.ajouterLivreur(g.entreprise.id, { nom, telephone, immatriculation });
+  if (!livreur) return Response.json({ erreur: "Un livreur a déjà cette immatriculation." }, { status: 409 });
+  return Response.json(livreur, { status: 201 });
 }

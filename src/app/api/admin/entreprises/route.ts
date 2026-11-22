@@ -1,5 +1,5 @@
 // Administration du SaaS : liste des entreprises inscrites et de leurs réponses.
-import { gerantCourant } from "@/lib/auth";
+import { gerantCourant, oublierMembres } from "@/lib/auth";
 import { admin } from "@/lib/supabase";
 
 async function exigerAdmin() {
@@ -48,5 +48,6 @@ export async function PATCH(req: Request) {
   }
   const { error } = await admin().from("entreprises").update({ statut }).eq("id", id);
   if (error) return Response.json({ erreur: error.message }, { status: 500 });
+  oublierMembres();
   return Response.json({ ok: true });
 }

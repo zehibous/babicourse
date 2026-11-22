@@ -18,9 +18,9 @@ export async function proxy(req: NextRequest) {
       },
     },
   });
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
+  // Vérification sur place de la signature du jeton (rafraîchi automatiquement s'il a expiré).
+  const { data } = await sb.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const chemin = req.nextUrl.pathname;
   if (!user && PROTEGE.some((r) => r.test(chemin))) {
@@ -41,6 +41,6 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Pas pour les fichiers statiques, ni pour l'API du livreur (appelée toutes les 4 secondes).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/course/|.*\\.(?:svg|png|jpg|ico|webmanifest)$).*)"],
+  // Seulement pour les pages : les API vérifient elles-mêmes la connexion (un passage de moins).
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|ico|webmanifest)$).*)"],
 };

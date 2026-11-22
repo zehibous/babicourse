@@ -70,24 +70,38 @@ export const db = {
     const data = verifier(await admin().from("livreurs").select("*").eq("entreprise_id", entrepriseId).order("nom"));
     return (data as LigneLivreur[]).map(versLivreur);
   },
+  /** Renvoie null si l'entreprise a déjà un livreur avec cette immatriculation. */
   async ajouterLivreur(entrepriseId: string, l: Omit<Livreur, "id" | "creeLe">) {
-    const data = verifier(
-      await admin().from("livreurs").insert({ ...l, entreprise_id: entrepriseId }).select().single(),
-    );
-    return versLivreur(data as LigneLivreur);
+    const r = await admin().from("livreurs").insert({ ...l, entreprise_id: entrepriseId }).select().single();
+    if (r.error?.code === "23505") return null; // doublon (index unique entreprise + immatriculation)
+    return versLivreur(verifier(r) as LigneLivreur);
+  },
+  async livreurExiste(entrepriseId: string, id: string) {
+    const { count } = await admin()
+      .from("livreurs")
+      .select("id", { count: "exact", head: true })
+      .eq("id", id)
+      .eq("entreprise_id", entrepriseId);
+    return (count ?? 0) > 0;
+  },
+  /** Le livreur a-t-il une course en cours (en attente, en route ou arrivé) ? */
+  async livreurOccupe(entrepriseId: string, id: string) {
+    const { count } = await admin()
+      .from("livraisons")
+      .select("id", { count: "exact", head: true })
+      .eq("entreprise_id", entrepriseId)
+      .eq("livreur_id", id)
+      .in("statut", ["en_attente", "en_route", "arrivee"]);
+    return (count ?? 0) > 0;
   },
   async supprimerLivreur(entrepriseId: string, id: string) {
     verifier(await admin().from("livreurs").delete().eq("id", id).eq("entreprise_id", entrepriseId));
   },
-  async livraisons(entrepriseId: string) {
-    const data = verifier(
-      await admin()
-        .from("livraisons")
-        .select(SELECT)
-        .eq("entreprise_id", entrepriseId)
-        .order("cree_le", { ascending: false })
-        .limit(500),
-    );
+  /** Livraisons de l'entreprise, éventuellement limitées à certains statuts (filtré par la base). */
+  async livraisons(entrepriseId: string, statuts?: Statut[]) {
+    let requete = admin().from("livraisons").select(SELECT).eq("entreprise_id", entrepriseId);
+    if (statuts) requete = requete.in("statut", statuts);
+    const data = verifier(await requete.order("cree_le", { ascending: false }).limit(500));
     return (data as LigneLivraison[]).map(versLivraison);
   },
   /** Pour la page du livreur : accès par le lien secret, sans connexion. */

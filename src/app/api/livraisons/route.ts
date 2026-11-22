@@ -1,16 +1,16 @@
 import { gerantCourant, reponseNonConnecte } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { STATUTS_ACTIFS } from "@/lib/types";
+import { STATUTS_ACTIFS, type Statut } from "@/lib/types";
+
+const TERMINEES: Statut[] = ["livree", "annulee"];
 
 // GET /api/livraisons?vue=actives | terminees
 export async function GET(req: Request) {
   const g = await gerantCourant();
   if (!g) return reponseNonConnecte();
   const vue = new URL(req.url).searchParams.get("vue");
-  let liste = await db.livraisons(g.entreprise.id);
-  if (vue === "actives") liste = liste.filter((l) => STATUTS_ACTIFS.includes(l.statut));
-  if (vue === "terminees") liste = liste.filter((l) => !STATUTS_ACTIFS.includes(l.statut));
-  return Response.json(liste);
+  const statuts = vue === "actives" ? STATUTS_ACTIFS : vue === "terminees" ? TERMINEES : undefined;
+  return Response.json(await db.livraisons(g.entreprise.id, statuts));
 }
 
 export async function POST(req: Request) {
@@ -24,17 +24,14 @@ export async function POST(req: Request) {
   if (!livreurId || !Number.isFinite(lat) || !Number.isFinite(lng) || !label) {
     return Response.json({ erreur: "Choisissez un livreur et une destination." }, { status: 400 });
   }
-  // Le livreur doit appartenir à l'entreprise du gérant.
-  const livreurs = await db.livreurs(g.entreprise.id);
-  if (!livreurs.some((l) => l.id === livreurId)) {
-    return Response.json({ erreur: "Livreur introuvable." }, { status: 404 });
-  }
-  const occupe = (await db.livraisons(g.entreprise.id)).some(
-    (l) => l.livreurId === livreurId && STATUTS_ACTIFS.includes(l.statut),
-  );
-  if (occupe) {
-    return Response.json({ erreur: "Ce livreur a déjà une livraison en cours." }, { status: 409 });
-  }
+  // Les deux vérifications partent en même temps.
+  const [existe, occupe] = await Promise.all([
+    db.livreurExiste(g.entreprise.id, livreurId), // le livreur doit appartenir à l'entreprise du gérant
+    db.livreurOccupe(g.entreprise.id, livreurId),
+  ]);
+  if (!existe) return Response.json({ erreur: "Livreur introuvable." }, { status: 404 });
+  if (occupe) return Response.json({ erreur: "Ce livreur a déjà une livraison en cours." }, { status: 409 });
+
   const texte = (v: unknown, max: number) => String(v ?? "").trim().slice(0, max) || undefined;
   const livraison = await db.ajouterLivraison(g.entreprise.id, {
     livreurId,

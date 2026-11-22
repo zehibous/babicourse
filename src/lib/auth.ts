@@ -28,28 +28,48 @@ type LigneMembre = {
   entreprises: { id: string; nom: string; statut: string } | null;
 };
 
+// Petite mémoire : le lien gérant → entreprise est gardé 30 secondes,
+// pour ne pas interroger la base à chaque action. (Une suspension prend effet en 30 s au plus.)
+const DUREE_MEMOIRE_MS = 30_000;
+const memoire = new Map<string, { membre: LigneMembre | null; jusqua: number }>();
+
+async function membreDe(userId: string): Promise<LigneMembre | null> {
+  const enMemoire = memoire.get(userId);
+  if (enMemoire && enMemoire.jusqua > Date.now()) return enMemoire.membre;
+  const { data } = await admin()
+    .from("membres")
+    .select("nom, role, entreprises(id, nom, statut)")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const membre = data as LigneMembre | null;
+  memoire.set(userId, { membre, jusqua: Date.now() + DUREE_MEMOIRE_MS });
+  if (memoire.size > 5000) memoire.clear();
+  return membre;
+}
+
+/** À appeler quand une entreprise change (suspension, renommage) pour l'appliquer tout de suite. */
+export function oublierMembres() {
+  memoire.clear();
+}
+
 /** Le gérant connecté, ou null (pas connecté, sans entreprise, ou entreprise suspendue). */
 export async function gerantCourant(): Promise<Gerant | null> {
   await connection(); // toujours calculé au moment de la visite (jamais mis en cache)
   const sb = await clientSession();
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
-  if (!user) return null;
-  const { data } = await admin()
-    .from("membres")
-    .select("nom, role, entreprises(id, nom, statut)")
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const m = data as LigneMembre | null;
+  // Vérification de la signature du jeton sur place (clés ES256), sans appeler Supabase à chaque fois.
+  const { data, error } = await sb.auth.getClaims();
+  const claims = data?.claims;
+  if (error || !claims?.sub) return null;
+  const m = await membreDe(claims.sub);
   if (!m?.entreprises || m.entreprises.statut !== "active") return null;
+  const email = typeof claims.email === "string" ? claims.email : "";
   return {
-    userId: user.id,
-    email: user.email ?? "",
+    userId: claims.sub,
+    email,
     nom: m.nom,
     role: m.role,
     entreprise: { id: m.entreprises.id, nom: m.entreprises.nom },
-    estAdmin: estEmailAdmin(user.email),
+    estAdmin: estEmailAdmin(email),
   };
 }
 

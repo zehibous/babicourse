@@ -31,15 +31,17 @@ export default function PageLivreurs() {
       setErreur((await res.json()).erreur ?? "Erreur.");
       return;
     }
+    // Le serveur renvoie le livreur créé : on l'ajoute à la liste sans tout recharger.
+    const nouveau: Livreur = await res.json();
+    setLivreurs((liste) => [...(liste ?? []), nouveau].sort((a, b) => a.nom.localeCompare(b.nom)));
     setForm({ nom: "", telephone: "", immatriculation: "" });
-    charger();
   }
 
   async function supprimer(l: Livreur) {
     if (!window.confirm(`Supprimer ${l.nom} (${l.immatriculation}) ?`)) return;
     const res = await fetch(`/api/livreurs/${l.id}`, { method: "DELETE" });
-    if (!res.ok) window.alert((await res.json()).erreur);
-    charger();
+    if (!res.ok) return window.alert((await res.json()).erreur);
+    setLivreurs((liste) => (liste ?? []).filter((x) => x.id !== l.id));
   }
 
   return (

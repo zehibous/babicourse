@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Logo } from "@/components/CadreCompte";
+import FormulaireContact from "@/components/FormulaireContact";
 import MaquetteHero from "@/components/MaquetteHero";
+import { CONTACT } from "@/lib/contact";
 
 // Page d'accueil publique : on présente l'outil, sans mettre en avant la vente.
 const ETAPES = [
@@ -24,9 +26,10 @@ export default function Accueil() {
       <header className="border-b border-bord bg-surface">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3">
           <Logo />
-          <Link href="/connexion" className="text-sm font-semibold text-texte hover:text-orange">
-            Se connecter
-          </Link>
+          <nav className="flex items-center gap-5 text-sm font-semibold">
+            <a href="#contact" className="text-discret hover:text-texte">Contact</a>
+            <Link href="/connexion" className="text-texte hover:text-orange">Se connecter</Link>
+          </nav>
         </div>
       </header>
 
@@ -92,7 +95,34 @@ export default function Accueil() {
       </main>
 
       <footer className="border-t border-bord bg-surface">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 px-4 py-5 text-xs text-discret">
+        <div id="contact" className="mx-auto grid max-w-5xl scroll-mt-4 gap-8 px-4 py-12 lg:grid-cols-[1fr_1.4fr] lg:gap-16">
+          <div>
+            <h2 className="text-xl font-bold sm:text-2xl">Une question ?</h2>
+            <p className="mt-2 text-sm text-discret">
+              {CONTACT.email
+                ? "Écrivez-nous : choisissez de nous envoyer votre message par WhatsApp ou par e-mail, nous vous répondons au plus vite."
+                : "Écrivez-nous sur WhatsApp, nous vous répondons au plus vite."}
+            </p>
+            <ul className="mt-5 space-y-2 text-sm">
+              {CONTACT.whatsapp && (
+                <li>
+                  <a href={`https://wa.me/${CONTACT.whatsapp}`} target="_blank" rel="noreferrer" className="font-medium hover:text-orange">
+                    WhatsApp : +{CONTACT.whatsapp.replace(/^(\d{3})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/, "$1 $2 $3 $4 $5 $6")}
+                  </a>
+                </li>
+              )}
+              {CONTACT.email && (
+                <li>
+                  <a href={`mailto:${CONTACT.email}`} className="font-medium hover:text-orange">
+                    E-mail : {CONTACT.email}
+                  </a>
+                </li>
+              )}
+            </ul>
+          </div>
+          <FormulaireContact />
+        </div>
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-2 border-t border-bord px-4 py-5 text-xs text-discret">
           <span>© BabiCourse · Abidjan</span>
           <Link href="/connexion" className="hover:text-texte">Espace gérant</Link>
         </div>

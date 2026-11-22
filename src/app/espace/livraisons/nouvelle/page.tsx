@@ -90,7 +90,7 @@ export default function NouvelleLivraison() {
             <LienLivreur livraison={creee} />
           </div>
           <div className="mt-6 flex flex-wrap gap-2 border-t border-bord pt-5">
-            <Link href="/" className="btn-orange">Voir sur la carte</Link>
+            <Link href="/espace" className="btn-orange">Voir sur la carte</Link>
             <a href={`/l/${creee.token}?simulation=1`} target="_blank" rel="noreferrer" className="btn-clair">
               Tester avec un trajet simulé
             </a>
@@ -126,7 +126,7 @@ export default function NouvelleLivraison() {
           <label className="etiquette" htmlFor="livreur">1. Livreur</label>
           {livreurs?.length === 0 ? (
             <p className="text-sm text-discret">
-              Aucun livreur enregistré. <Link href="/livreurs" className="font-semibold text-orange">Ajouter un livreur →</Link>
+              Aucun livreur enregistré. <Link href="/espace/livreurs" className="font-semibold text-orange">Ajouter un livreur →</Link>
             </p>
           ) : (
             <select id="livreur" className="champ" value={livreurId} onChange={(e) => setLivreurId(e.target.value)}>

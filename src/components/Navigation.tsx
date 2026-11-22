@@ -52,15 +52,15 @@ function Pictogramme({ nom, className = "h-5 w-5" }: { nom: Icone; className?: s
 }
 
 const LIENS: { href: string; texte: string; icone: Icone }[] = [
-  { href: "/", texte: "Carte en direct", icone: "carte" },
-  { href: "/livraisons/nouvelle", texte: "Nouvelle livraison", icone: "plus" },
-  { href: "/livreurs", texte: "Livreurs", icone: "livreurs" },
-  { href: "/historique", texte: "Historique", icone: "historique" },
+  { href: "/espace", texte: "Carte en direct", icone: "carte" },
+  { href: "/espace/livraisons/nouvelle", texte: "Nouvelle livraison", icone: "plus" },
+  { href: "/espace/livreurs", texte: "Livreurs", icone: "livreurs" },
+  { href: "/espace/historique", texte: "Historique", icone: "historique" },
 ];
 
 function Logo() {
   return (
-    <Link href="/" className="flex items-center gap-2 text-lg font-extrabold">
+    <Link href="/espace" className="flex items-center gap-2 text-lg font-extrabold">
       <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange text-white">🛵</span>
       <span>
         Babi<span className="text-orange">Course</span>
@@ -69,16 +69,18 @@ function Logo() {
   );
 }
 
-function Menu({ chemin, onChoix }: { chemin: string; onChoix?: () => void }) {
+export type InfosGerant = { entreprise: string; email: string; estAdmin: boolean };
+
+function Menu({ chemin, onChoix, infos }: { chemin: string; onChoix?: () => void; infos: InfosGerant }) {
   async function deconnecter() {
-    await fetch("/api/connexion", { method: "DELETE" });
+    await fetch("/api/auth/connexion", { method: "DELETE" });
     window.location.href = "/connexion";
   }
   return (
     <div className="flex h-full flex-col">
       <nav className="flex-1 space-y-1 p-3">
         {LIENS.map((l) => {
-          const actif = l.href === "/" ? chemin === "/" : chemin.startsWith(l.href);
+          const actif = l.href === "/espace" ? chemin === "/espace" : chemin.startsWith(l.href);
           return (
             <Link
               key={l.href}
@@ -94,8 +96,22 @@ function Menu({ chemin, onChoix }: { chemin: string; onChoix?: () => void }) {
             </Link>
           );
         })}
+        {infos.estAdmin && (
+          <Link
+            href="/admin"
+            onClick={onChoix}
+            className="mt-4 flex items-center gap-3 rounded-lg border border-dashed border-bord px-3 py-3 text-[15px] font-medium text-discret hover:bg-fond hover:text-texte lg:py-2.5 lg:text-sm"
+          >
+            <span aria-hidden className="w-5 text-center">⚙️</span>
+            Administration
+          </Link>
+        )}
       </nav>
-      <div className="border-t border-bord p-3">
+      <div className="border-t border-bord px-6 pt-3 text-xs">
+        <div className="truncate font-semibold text-texte">{infos.entreprise}</div>
+        <div className="truncate text-discret">{infos.email}</div>
+      </div>
+      <div className="p-3">
         <button
           type="button"
           onClick={deconnecter}
@@ -109,10 +125,10 @@ function Menu({ chemin, onChoix }: { chemin: string; onChoix?: () => void }) {
   );
 }
 
-export default function Navigation() {
+export default function Navigation({ infos }: { infos: InfosGerant }) {
   const chemin = usePathname();
   const [ouvert, setOuvert] = useState(false);
-  const titre = LIENS.find((l) => (l.href === "/" ? chemin === "/" : chemin.startsWith(l.href)))?.texte ?? "";
+  const titre = LIENS.find((l) => (l.href === "/espace" ? chemin === "/espace" : chemin.startsWith(l.href)))?.texte ?? "";
 
   // Touche Échap pour fermer, et pas de défilement de la page derrière le menu ouvert.
   useEffect(() => {
@@ -168,7 +184,7 @@ export default function Navigation() {
             <Pictogramme nom="fermer" className="h-6 w-6" />
           </button>
         </div>
-        <Menu chemin={chemin} onChoix={() => setOuvert(false)} />
+        <Menu chemin={chemin} onChoix={() => setOuvert(false)} infos={infos} />
       </aside>
 
       {/* Ordinateur : barre latérale fixe */}
@@ -176,7 +192,7 @@ export default function Navigation() {
         <div className="flex h-16 items-center border-b border-bord px-5">
           <Logo />
         </div>
-        <Menu chemin={chemin} />
+        <Menu chemin={chemin} infos={infos} />
       </aside>
     </>
   );

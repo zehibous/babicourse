@@ -233,7 +233,7 @@ export default function TableauDeBord() {
         <div className="border-b border-bord p-4">
           <div className="flex items-center justify-between gap-2">
             <h1 className="text-lg font-bold">Courses en cours</h1>
-            <Link href="/livraisons/nouvelle" className="btn-orange !py-1.5">
+            <Link href="/espace/livraisons/nouvelle" className="btn-orange !py-1.5">
               + Nouvelle
             </Link>
           </div>
@@ -251,7 +251,7 @@ export default function TableauDeBord() {
             <div className="rounded-xl border border-dashed border-bord p-6 text-center text-sm text-discret">
               Aucune course en cours.
               <br />
-              <Link href="/livraisons/nouvelle" className="mt-2 inline-block font-semibold text-orange">
+              <Link href="/espace/livraisons/nouvelle" className="mt-2 inline-block font-semibold text-orange">
                 Créer une livraison →
               </Link>
             </div>

@@ -1,4 +1,4 @@
-# BabiCourse – suivi des livreurs en direct
+# BabiCourse – suivi des livreurs en direct (SaaS multi-entreprises)
 
 ## Lancer l'application sur l'ordinateur
 
@@ -8,28 +8,37 @@ npm run dev -- -p 3200
 
 Puis ouvrir http://localhost:3200
 
-## Comment ça marche
+## Les pages
 
-1. **Livreurs** : enregistrer chaque livreur (nom, téléphone, immatriculation).
-2. **Nouvelle livraison** : choisir un livreur et la destination (recherche d'adresse ou clic sur la carte).
-3. Envoyer le lien au livreur par WhatsApp. Il l'ouvre sur son téléphone et appuie sur « Démarrer la course ».
-4. **Carte en direct** : position de chaque livreur toutes les 4 secondes, trajet par la route, distance restante, heure d'arrivée estimée. Alerte quand il arrive (moins de 80 m).
-5. Le livreur appuie sur « Colis livré » : la course passe dans l'**Historique**.
+| Adresse | Pour qui | Rôle |
+|---|---|---|
+| `/` | tout le monde | Présentation de BabiCourse (sans prix) |
+| `/essai` | nouvelle entreprise | Questionnaire en 3 étapes + création du compte, accès immédiat |
+| `/connexion`, `/mot-de-passe-oublie` | gérants | Connexion par e-mail et mot de passe |
+| `/espace` | gérant connecté | Carte en direct, livreurs, livraisons, historique — uniquement ceux de son entreprise |
+| `/admin` | administrateurs (`ADMIN_EMAILS`) | Entreprises inscrites, réponses au questionnaire, utilisation, suspension |
+| `/l/<code>` | livreur | Partage de sa position GPS (lien secret envoyé par WhatsApp) |
 
-Pour tester sans téléphone : bouton « Tester (simulation) » sur une course en attente.
+## Variables d'environnement (`.env.local` et Vercel)
 
-## Outils utilisés
+| Nom | Contenu |
+|---|---|
+| `SUPABASE_URL` | `https://rwzvljddvglgfajysdzi.supabase.co` |
+| `SUPABASE_SECRET_KEY` | clé secrète Supabase (`sb_secret_…`) — ne jamais la partager |
+| `SUPABASE_PUBLISHABLE_KEY` | clé publique Supabase (`sb_publishable_…`) |
+| `ADMIN_EMAILS` | e-mails administrateurs, séparés par des virgules |
 
-- Next.js 16 (site + API)
-- Carte : OpenStreetMap + Leaflet (gratuit)
-- Trajets : OSRM (gratuit) — recherche d'adresse : Nominatim (gratuit)
-- Données : Supabase (projet BabiCourse) dès que `SUPABASE_URL` et `SUPABASE_SECRET_KEY` sont dans `.env.local`.
-  Sans ces clés, l'application utilise le fichier `data/db.json`.
-  Tables : `supabase/migrations/20261122000000_babicourse_init.sql` (accès réservé au serveur).
+## Base de données
 
-## Limites de cette première version
+Supabase, scripts dans `supabase/migrations/`. Toutes les tables ont la sécurité RLS activée sans règle
+publique : seul le serveur (clé secrète) lit et écrit, et chaque requête du gérant est filtrée par son entreprise.
 
-- Pas encore en ligne : le lien du livreur ne marche que sur cet ordinateur.
-  Le GPS d'un téléphone exige un site en **https** → mise en ligne sur Vercel nécessaire.
-- Pas de connexion par mot de passe pour le gérant.
-- Le livreur doit garder la page ouverte : si elle est fermée, sa position n'est plus envoyée.
+## Outils
+
+- Next.js 16, Supabase (base + comptes), Vercel (hébergement)
+- Carte : OpenStreetMap + Leaflet — trajets : OSRM — recherche d'adresse : Nominatim (gratuits)
+
+## Limites connues
+
+- Le livreur doit garder la page ouverte pendant la course (sinon sa position n'est plus envoyée).
+- E-mails « mot de passe oublié » : service d'envoi gratuit de Supabase, limité à quelques e-mails par heure.

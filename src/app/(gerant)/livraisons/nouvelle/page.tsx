@@ -117,7 +117,7 @@ export default function NouvelleLivraison() {
   const libres = livreurs?.filter((l) => !occupes.has(l.id)) ?? [];
 
   return (
-    <div className="flex flex-1 flex-col lg:h-[calc(100vh-57px)] lg:flex-row">
+    <div className="flex flex-1 flex-col lg:h-screen lg:flex-row">
       <div className="space-y-5 overflow-y-auto bg-surface p-4 md:p-6 lg:w-[440px] lg:border-r lg:border-bord">
         <h1 className="text-xl font-bold">Nouvelle livraison</h1>
 

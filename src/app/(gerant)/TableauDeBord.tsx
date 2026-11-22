@@ -227,7 +227,7 @@ export default function TableauDeBord() {
   const arrives = livraisons?.filter((l) => l.statut === "arrivee").length ?? 0;
 
   return (
-    <div className="flex flex-1 flex-col lg:h-[calc(100vh-57px)] lg:flex-row">
+    <div className="flex flex-1 flex-col lg:h-screen lg:flex-row">
       {/* Liste des courses */}
       <aside className="order-2 flex flex-col border-bord bg-surface lg:order-1 lg:w-[400px] lg:border-r">
         <div className="border-b border-bord p-4">

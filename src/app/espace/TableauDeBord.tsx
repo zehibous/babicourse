@@ -103,6 +103,56 @@ export default function TableauDeBord() {
     };
   }, [charger]);
 
+  // Surveillance du signal : alerte (message + son) quand un livreur en course n'envoie plus sa position
+  // depuis 2 minutes, et quand il réapparaît. Vérifiée toutes les 10 secondes.
+  const livraisonsRef = useRef<LivraisonAvecLivreur[] | null>(null);
+  livraisonsRef.current = livraisons;
+  const perdusSignales = useRef<Set<string>>(new Set());
+  const [perdus, setPerdus] = useState<string[]>([]);
+  useEffect(() => {
+    const verifier = () => {
+      const liste = livraisonsRef.current;
+      if (!liste) return;
+      const maintenant = Date.now();
+      const actuels = liste.filter(
+        (l) =>
+          (l.statut === "en_route" || l.statut === "arrivee") &&
+          l.dernierePosition &&
+          maintenant - new Date(l.dernierePosition.le).getTime() > SIGNAL_PERDU_MS,
+      );
+      const messages: string[] = [];
+      for (const l of actuels) {
+        if (!perdusSignales.current.has(l.id)) {
+          perdusSignales.current.add(l.id);
+          messages.push(`⚠ Signal perdu : ${l.livreur?.nom ?? "un livreur"} n'envoie plus sa position.`);
+        }
+      }
+      for (const id of [...perdusSignales.current]) {
+        if (!actuels.some((l) => l.id === id)) {
+          perdusSignales.current.delete(id);
+          const l = liste.find((x) => x.id === id);
+          if (l && (l.statut === "en_route" || l.statut === "arrivee")) {
+            messages.push(`📶 ${l.livreur?.nom ?? "Le livreur"} est de nouveau visible.`);
+          }
+        }
+      }
+      setPerdus(actuels.map((l) => l.livreur?.nom ?? "Livreur"));
+      if (messages.length) {
+        const t = Date.now();
+        setAlertes((a) => [...a, ...messages.map((texte, i) => ({ id: t + i, texte }))]);
+        bip();
+      }
+    };
+    verifier();
+    const t = setInterval(verifier, 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Le titre de l'onglet signale les livreurs perdus, même si le gérant est sur un autre onglet.
+  useEffect(() => {
+    document.title = perdus.length ? `(${perdus.length}) Signal perdu – BabiCourse` : "BabiCourse – Suivi des livreurs";
+  }, [perdus]);
+
   // Les alertes disparaissent après 6 secondes.
   useEffect(() => {
     if (!alertes.length) return;
@@ -242,6 +292,12 @@ export default function TableauDeBord() {
             <Compteur valeur={enAttente} texte="En attente" />
             <Compteur valeur={arrives} texte="Arrivés" />
           </div>
+          {perdus.length > 0 && (
+            <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-rouge" role="alert">
+              <strong>Signal perdu</strong> depuis plus de 2 min : {perdus.join(", ")}. Leur dernière position connue reste
+              affichée (en gris). Appelez-les ou demandez-leur de rouvrir leur lien.
+            </div>
+          )}
           {erreur && <p className="mt-3 text-sm text-rouge">Connexion perdue avec le serveur, nouvelle tentative…</p>}
         </div>
 
@@ -298,6 +354,11 @@ export default function TableauDeBord() {
                     <span className={perdu ? "font-semibold text-rouge" : ""}>
                       {perdu ? "⚠ Signal perdu — " : ""}Position reçue {ilYa(l.dernierePosition.le)}
                     </span>
+                  )}
+                  {perdu && l.livreur?.telephone && (
+                    <a href={`tel:${l.livreur.telephone}`} className="ml-2 font-semibold text-orange hover:underline">
+                      📞 Appeler
+                    </a>
                   )}
                   {l.statut === "arrivee" && l.arriveLe && <> · arrivé à {formatHeure(new Date(l.arriveLe))}</>}
                 </div>

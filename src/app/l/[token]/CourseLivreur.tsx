@@ -1,6 +1,7 @@
 "use client";
 import { useParams, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import BoutonInstaller from "@/components/BoutonInstaller";
 import Carte, { type MarqueurCarte } from "@/components/Carte";
 import { distanceMetres, formatDistance, itineraireRoute } from "@/lib/geo";
 import type { LivraisonAvecLivreur } from "@/lib/types";
@@ -9,6 +10,30 @@ type Etat = "pret" | "suivi" | "refuse" | "indisponible";
 
 const ENVOI_MIN_MS = 4000; // au plus une position toutes les 4 secondes
 const ENVOI_MIN_M = 15; // ... sauf si le livreur a bougé de plus de 15 m
+
+// Mémoire du téléphone : courses déjà démarrées (pour reprendre le suivi tout seul)
+// et dernière course ouverte (pour l'icône « BabiCourse Livreur » de l'écran d'accueil).
+const CLE_DEMARREES = "babicourse_courses_demarrees";
+export const CLE_DERNIERE_COURSE = "babicourse_derniere_course";
+
+function lireDemarrees(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(CLE_DEMARREES) ?? "[]");
+  } catch {
+    return [];
+  }
+}
+function memoriserDemarree(token: string) {
+  try {
+    const liste = lireDemarrees().filter((t) => t !== token);
+    localStorage.setItem(CLE_DEMARREES, JSON.stringify([token, ...liste].slice(0, 20)));
+  } catch {}
+}
+
+function dureeLisible(ms: number) {
+  const min = Math.round(ms / 60000);
+  return min < 1 ? `${Math.round(ms / 1000)} s` : `${min} min`;
+}
 
 export default function CourseLivreur() {
   const { token } = useParams<{ token: string }>();
@@ -24,11 +49,17 @@ export default function CourseLivreur() {
   const watchId = useRef<number | null>(null);
   const simTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const wakeLock = useRef<{ release: () => Promise<void> } | null>(null);
+  const [interruption, setInterruption] = useState<string | null>(null);
+  const cacheLe = useRef<number | null>(null);
+  const repriseFaite = useRef(false);
 
   useEffect(() => {
     fetch(`/api/course/${token}`, { cache: "no-store" }).then(async (r) => {
       if (!r.ok) return setIntrouvable(true);
       setLivraison(await r.json());
+      try {
+        localStorage.setItem(CLE_DERNIERE_COURSE, token);
+      } catch {}
     });
   }, [token]);
 
@@ -78,18 +109,10 @@ export default function CourseLivreur() {
     } catch {}
   }
 
-  async function demarrer() {
-    if (!livraison) return;
-    await garderEcranAllume();
-    setCadrageCle(Date.now());
-
-    if (simulation) {
-      setEtat("suivi");
-      await demarrerSimulation(livraison);
-      return;
-    }
-
+  /** Branche (ou rebranche) le GPS du téléphone. */
+  const lancerGPS = useCallback(() => {
     if (!("geolocation" in navigator)) return setEtat("indisponible");
+    if (watchId.current !== null) navigator.geolocation.clearWatch(watchId.current);
     watchId.current = navigator.geolocation.watchPosition(
       (p) => {
         setEtat("suivi");
@@ -103,7 +126,76 @@ export default function CourseLivreur() {
       },
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 },
     );
+  }, [envoyer, arreter]);
+
+  async function demarrer() {
+    if (!livraison) return;
+    await garderEcranAllume();
+    setCadrageCle(Date.now());
+
+    if (simulation) {
+      setEtat("suivi");
+      await demarrerSimulation(livraison);
+      return;
+    }
+    repriseFaite.current = true; // déjà lancé à la main : pas besoin de la reprise automatique
+    memoriserDemarree(token);
+    lancerGPS();
   }
+
+  // Reprise automatique : si cette course a déjà été démarrée sur ce téléphone (page rechargée,
+  // fermée puis rouverte depuis WhatsApp…), le suivi repart sans réappuyer sur « Démarrer ».
+  useEffect(() => {
+    if (!livraison || simulation || repriseFaite.current) return;
+    if (livraison.statut !== "en_route" && livraison.statut !== "arrivee") return;
+    if (!lireDemarrees().includes(token)) return;
+    repriseFaite.current = true;
+    garderEcranAllume();
+    lancerGPS();
+  }, [livraison, simulation, token, lancerGPS]);
+
+  // Quand le livreur revient sur la page (après un appel, WhatsApp, Google Maps…) :
+  // on rebranche le GPS, on renvoie la position tout de suite et on lui dit combien de temps ça a coupé.
+  useEffect(() => {
+    if (etat !== "suivi" || simulation) return;
+    const changement = () => {
+      if (document.visibilityState === "hidden") {
+        cacheLe.current = Date.now();
+        return;
+      }
+      const absent = cacheLe.current ? Date.now() - cacheLe.current : 0;
+      cacheLe.current = null;
+      garderEcranAllume(); // l'écran allumé se perd quand on quitte la page
+      lancerGPS();
+      navigator.geolocation.getCurrentPosition(
+        (p) => envoyer(p.coords.latitude, p.coords.longitude, p.coords.accuracy, p.coords.speed, true),
+        () => {},
+        { enableHighAccuracy: true, timeout: 15000 },
+      );
+      if (absent > 20000) setInterruption(dureeLisible(absent));
+    };
+    document.addEventListener("visibilitychange", changement);
+    return () => document.removeEventListener("visibilitychange", changement);
+  }, [etat, simulation, envoyer, lancerGPS]);
+
+  // Avertissement du navigateur si le livreur essaie de fermer la page pendant la course.
+  const courseFinie = livraison?.statut === "livree" || livraison?.statut === "annulee";
+  useEffect(() => {
+    if (etat !== "suivi" || courseFinie) return;
+    const avertir = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avertir);
+    return () => window.removeEventListener("beforeunload", avertir);
+  }, [etat, courseFinie]);
+
+  // Le message « suivi interrompu » disparaît tout seul.
+  useEffect(() => {
+    if (!interruption) return;
+    const t = setTimeout(() => setInterruption(null), 12000);
+    return () => clearTimeout(t);
+  }, [interruption]);
 
   /** Mode test : le livreur « roule » tout seul vers la destination. */
   async function demarrerSimulation(l: LivraisonAvecLivreur) {
@@ -204,11 +296,24 @@ export default function CourseLivreur() {
           <a href={itineraireGoogle} target="_blank" rel="noreferrer" className="btn-clair mt-3 w-full">
             Ouvrir l&apos;itinéraire dans Google Maps
           </a>
+          {etat === "suivi" && (
+            <p className="mt-2 text-xs text-discret">
+              Pendant que vous êtes sur Google Maps, votre position n&apos;est pas envoyée. Revenez ici régulièrement : le
+              suivi reprend tout seul.
+            </p>
+          )}
         </div>
+
+        {interruption && (
+          <div className="rounded-xl bg-texte p-3 text-sm text-white" role="status">
+            ⚠ Le suivi a été coupé pendant <strong>{interruption}</strong> pendant que vous étiez sur une autre appli. Il a
+            repris.
+          </div>
+        )}
 
         {etat === "pret" && (
           <button type="button" onClick={demarrer} className="btn-orange w-full !py-4 !text-base">
-            ▶ Démarrer la course
+            {livraison.statut === "en_attente" ? "▶ Démarrer la course" : "▶ Reprendre le suivi"}
           </button>
         )}
 
@@ -229,9 +334,11 @@ export default function CourseLivreur() {
             <p className="mt-1 text-xs text-discret">
               {horsLigne ? "⚠ Pas de connexion internet, nouvel essai automatique…" : envoiOk ? `Dernier envoi à ${envoiOk}` : "Recherche du signal GPS…"}
             </p>
-            <p className="mt-3 rounded-lg bg-orange-doux p-3 text-xs text-orange-fonce">
-              Gardez cette page ouverte pendant la course. Si vous la fermez, votre responsable ne vous voit plus.
-            </p>
+            <div className="mt-3 rounded-lg bg-orange-doux p-3 text-xs text-orange-fonce">
+              <strong>Laissez cette page ouverte, écran allumé.</strong> Vous pouvez répondre à un appel ou à WhatsApp :
+              revenez ensuite ici et le suivi reprend tout seul. Si vous fermez la page ou verrouillez le téléphone, votre
+              responsable ne vous voit plus.
+            </div>
           </div>
         )}
 
@@ -251,6 +358,9 @@ export default function CourseLivreur() {
             ✓ Colis livré
           </button>
         )}
+
+        {/* Installer « BabiCourse Livreur » : une icône qui rouvre la course en un geste. */}
+        <BoutonInstaller />
       </div>
     </div>
   );

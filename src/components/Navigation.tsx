@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import BoutonInstaller from "./BoutonInstaller";
 
 type Icone = "carte" | "plus" | "livreurs" | "historique" | "sortie" | "menu" | "fermer";
 
@@ -112,6 +113,7 @@ function Menu({ chemin, onChoix, infos }: { chemin: string; onChoix?: () => void
         <div className="truncate text-discret">{infos.email}</div>
       </div>
       <div className="p-3">
+        <BoutonInstaller />
         <button
           type="button"
           onClick={deconnecter}

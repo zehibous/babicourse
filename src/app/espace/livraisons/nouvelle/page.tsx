@@ -7,6 +7,23 @@ import { STATUTS_ACTIFS, type LivraisonAvecLivreur, type Livreur } from "@/lib/t
 
 type Resultat = { label: string; lat: number; lng: number };
 
+// La dernière livraison créée est gardée dans l'onglet (15 minutes) : si le téléphone recharge la page
+// pendant qu'on est sur WhatsApp, on la retrouve au retour.
+const CLE_MEMOIRE = "babicourse_derniere_livraison";
+function lireMemoire(): { livraison: LivraisonAvecLivreur; envoye: boolean } | null {
+  try {
+    const m = JSON.parse(sessionStorage.getItem(CLE_MEMOIRE) ?? "null");
+    if (m && Date.now() - m.le < 15 * 60 * 1000) return { livraison: m.livraison, envoye: !!m.envoye };
+  } catch {}
+  return null;
+}
+function ecrireMemoire(livraison: LivraisonAvecLivreur | null, envoye = false) {
+  try {
+    if (livraison) sessionStorage.setItem(CLE_MEMOIRE, JSON.stringify({ livraison, envoye, le: Date.now() }));
+    else sessionStorage.removeItem(CLE_MEMOIRE);
+  } catch {}
+}
+
 export default function NouvelleLivraison() {
   const [livreurs, setLivreurs] = useState<Livreur[] | null>(null);
   const [occupes, setOccupes] = useState<Set<string>>(new Set());
@@ -21,6 +38,15 @@ export default function NouvelleLivraison() {
   const [envoi, setEnvoi] = useState(false);
   const [creee, setCreee] = useState<LivraisonAvecLivreur | null>(null);
   const [cadrageCle, setCadrageCle] = useState(0);
+  const [envoye, setEnvoye] = useState(false);
+
+  useEffect(() => {
+    const m = lireMemoire();
+    if (m) {
+      setCreee(m.livraison);
+      setEnvoye(m.envoye);
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -73,24 +99,43 @@ export default function NouvelleLivraison() {
     const data = await res.json();
     if (!res.ok) return setErreur(data.erreur ?? "Erreur.");
     setCreee(data);
+    setEnvoye(false);
+    ecrireMemoire(data);
   }
 
   if (creee) {
     return (
       <div className="mx-auto w-full max-w-xl p-4 md:p-8">
         <div className="carte-bloc p-6">
-          <div className="text-3xl">✅</div>
-          <h1 className="mt-2 text-xl font-bold">Livraison créée</h1>
+          <div className="text-3xl">{envoye ? "📨" : "✅"}</div>
+          <h1 className="mt-2 text-xl font-bold">{envoye ? "Lien envoyé au livreur" : "Livraison créée"}</h1>
           <p className="mt-2 text-sm text-discret">
-            Envoyez maintenant le lien à <strong className="text-texte">{creee.livreur?.nom}</strong>. Quand il l&apos;ouvre et
-            appuie sur « Démarrer la course », sa position apparaît sur la carte.
+            {envoye ? (
+              <>
+                Dès que <strong className="text-texte">{creee.livreur?.nom}</strong> ouvre le lien et appuie sur « Démarrer la
+                course », il apparaît sur la carte.
+              </>
+            ) : (
+              <>
+                Envoyez maintenant le lien à <strong className="text-texte">{creee.livreur?.nom}</strong>. Quand il l&apos;ouvre
+                et appuie sur « Démarrer la course », sa position apparaît sur la carte.
+              </>
+            )}
           </p>
           <div className="mt-3 rounded-lg bg-fond p-3 text-sm">🏁 {creee.destination.label}</div>
           <div className="mt-5">
-            <LienLivreur livraison={creee} />
+            <LienLivreur
+              livraison={creee}
+              onEnvoye={() => {
+                setEnvoye(true);
+                ecrireMemoire(creee, true);
+              }}
+            />
           </div>
           <div className="mt-6 flex flex-wrap gap-2 border-t border-bord pt-5">
-            <Link href="/espace" className="btn-orange">Voir sur la carte</Link>
+            <Link href="/espace" onClick={() => ecrireMemoire(null)} className={`btn-orange ${envoye ? "w-full !py-3" : ""}`}>
+              Voir sur la carte
+            </Link>
             <a href={`/l/${creee.token}?simulation=1`} target="_blank" rel="noreferrer" className="btn-clair">
               Tester avec un trajet simulé
             </a>
@@ -98,7 +143,9 @@ export default function NouvelleLivraison() {
               type="button"
               className="btn-clair"
               onClick={() => {
+                ecrireMemoire(null);
                 setCreee(null);
+                setEnvoye(false);
                 setDest(null);
                 setLivreurId("");
                 setRepere("");

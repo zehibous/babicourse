@@ -2,10 +2,17 @@
 // Le reste est public : accueil, essai, connexion, page du livreur (/l/...) protégée par son lien secret.
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { ANCIENNES_ADRESSES, URL_SITE } from "@/lib/site";
 
 const PROTEGE = [/^\/espace(\/|$)/, /^\/admin(\/|$)/];
 
 export async function proxy(req: NextRequest) {
+  // Ancienne adresse (babicourse.vercel.app) → adresse officielle, en gardant la page demandée.
+  // Les anciens liens déjà envoyés aux livreurs continuent donc de marcher.
+  if (ANCIENNES_ADRESSES.includes(req.nextUrl.hostname)) {
+    return NextResponse.redirect(`${URL_SITE}${req.nextUrl.pathname}${req.nextUrl.search}`, 308);
+  }
+
   let reponse = NextResponse.next({ request: req });
 
   const sb = createServerClient(process.env.SUPABASE_URL!, process.env.SUPABASE_PUBLISHABLE_KEY!, {

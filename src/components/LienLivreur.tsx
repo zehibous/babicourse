@@ -6,10 +6,13 @@
 // Avant, le lien wa.me ouvrait un nouvel onglet vide, et le retour tombait sur cet onglet.
 import { useEffect, useState } from "react";
 import { numeroWhatsApp } from "@/lib/geo";
+import { URL_SITE } from "@/lib/site";
 import type { LivraisonAvecLivreur } from "@/lib/types";
 
+/** Lien envoyé au livreur : toujours l'adresse officielle (sauf pendant les essais sur l'ordinateur). */
 export function lienCourse(token: string) {
-  return `${window.location.origin}/l/${token}`;
+  const essaiLocal = /^(localhost|127\.0\.0\.1)$/.test(window.location.hostname);
+  return `${essaiLocal ? window.location.origin : URL_SITE}/l/${token}`;
 }
 
 type Props = { livraison: LivraisonAvecLivreur; compact?: boolean; onEnvoye?: () => void };
